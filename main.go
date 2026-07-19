@@ -32,9 +32,9 @@ func main() {
 		FileServerHits: atomic.Int32{},
 	}
 	mux.Handle("/app/", apiCfg.MiddleWareMetricInc(http.StripPrefix("/app", fileserver))) //strip the url bcs fileServer search file in . directory not in /app/index.html
-	mux.HandleFunc("/healthz", health)
-	mux.HandleFunc("/metrics", apiCfg.countRequests)
-	mux.HandleFunc("/reset", apiCfg.ResetRequests)
+	mux.HandleFunc("GET /healthz", health)
+	mux.HandleFunc("GET /metrics", apiCfg.countRequests)
+	mux.HandleFunc("POST /reset", apiCfg.ResetRequests)
 
 	println("Server Listening on port 8080")
 	log.Fatal(server.ListenAndServe())
