@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync/atomic"
 )
 
@@ -62,7 +63,24 @@ func ValidateChirp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	RespondWithJson(w, http.StatusOK, map[string]bool{"valid": true})
+	ReplaceBadword(&valid.Body)
+
+	RespondWithJson(w, http.StatusOK, map[string]string{"cleaned_body": valid.Body})
+}
+
+func ReplaceBadword(sentence *string) {
+	words := []string{"kerfuffle", "sharbert", "fornax"}
+	result := strings.Split(*sentence, " ")
+	//found  := false
+	for i, w := range result {
+		for _, f := range words {
+			if strings.ToLower(w) == f {
+				result[i] = "****"
+			}
+		}
+	}
+
+	*sentence = strings.Join(result, " ")
 }
 
 func RespondWithJson(w http.ResponseWriter, code int, payload interface{}) error {
