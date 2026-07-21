@@ -1,16 +1,23 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
+	"myapp/internal/database"
 	"net/http"
+	"os"
 	"strings"
 	"sync/atomic"
+
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
 type apiconfig struct {
 	FileServerHits atomic.Int32
+	DB             *database.Queries
 }
 
 type validation struct {
@@ -25,6 +32,13 @@ func (cfg *apiconfig) MiddleWareMetricInc(next http.Handler) http.Handler {
 }
 
 func main() {
+	godotenv.Load()
+	dbURL := os.Getenv("DB_URL")
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		return
+	}
+	dbQueries := database.New(db)
 	const port = "8080"
 	const filePath = "."
 	mux := http.NewServeMux()
@@ -36,6 +50,7 @@ func main() {
 	fileserver := http.FileServer(http.Dir(filePath))
 	apiCfg := apiconfig{
 		FileServerHits: atomic.Int32{},
+		DB:             dbQueries,
 	}
 	mux.Handle("/app/", apiCfg.MiddleWareMetricInc(http.StripPrefix("/app", fileserver))) //strip the url bcs fileServer search file in . directory not in /app/index.html
 	mux.HandleFunc("GET /api/healthz", health)
