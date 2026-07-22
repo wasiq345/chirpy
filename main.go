@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"myapp/internal/database"
@@ -23,8 +24,12 @@ type apiconfig struct {
 	Platform       string
 }
 
-type validation struct {
-	Body string `json:"body"`
+type Chirp struct {
+	Id         uuid.UUID `json:"id"`
+	Created_at time.Time `json:"created_at"`
+	Updated_at time.Time `json:"updated_at"`
+	Body       string    `json:"body"`
+	User_id    uuid.UUID `json:"user_id"`
 }
 
 type user struct {
@@ -68,7 +73,7 @@ func main() {
 	mux.HandleFunc("GET /api/healthz", health)
 	mux.HandleFunc("GET /admin/metrics", apiCfg.countRequests)
 	mux.HandleFunc("POST /admin/reset", apiCfg.ResetRequests)
-	mux.HandleFunc("POST /api/validate_chirp", ValidateChirp)
+	mux.HandleFunc("POST /api/chirps", apiCfg.CreateChirps)
 
 	println("Server Listening on port 8080")
 	log.Fatal(server.ListenAndServe())
@@ -102,27 +107,48 @@ func (apicfg *apiconfig) createUsers(w http.ResponseWriter, r *http.Request) {
 	RespondWithJson(w, http.StatusCreated, User)
 }
 
-func ValidateChirp(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiconfig) CreateChirps(w http.ResponseWriter, r *http.Request) {
+	chirp := Chirp{}
+	err := ValidateChirp(w, r, &chirp)
+	if err != nil {
+		return
+	}
 
-	valid := validation{}
+	C, err := cfg.DB.CreateChirp(r.Context(), database.CreateChirpParams{Body: chirp.Body, Userid: chirp.User_id})
+
+	if err != nil {
+		RespondWithErr(w, http.StatusInternalServerError, "Couldn't Create Chirp")
+		return
+	}
+
+	chirp.Body = C.Body
+	chirp.Created_at = C.CreatedAt
+	chirp.Updated_at = C.UpdatedAt
+	chirp.User_id = C.Userid
+	chirp.Id = C.ID
+
+	RespondWithJson(w, http.StatusCreated, chirp)
+}
+
+func ValidateChirp(w http.ResponseWriter, r *http.Request, chirp *Chirp) error {
+
 	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&valid)
+	err := decoder.Decode(chirp)
 
 	defer r.Body.Close()
 
 	if err != nil {
 		RespondWithErr(w, http.StatusBadRequest, "Something went wrong")
-		return
+		return err
 	}
 
-	if len(valid.Body) > 140 {
+	if len(chirp.Body) > 140 {
 		RespondWithErr(w, http.StatusBadRequest, "Chirp is too long")
-		return
+		return errors.New("chirp too long")
 	}
 
-	ReplaceBadword(&valid.Body)
-
-	RespondWithJson(w, http.StatusOK, map[string]string{"cleaned_body": valid.Body})
+	ReplaceBadword(&chirp.Body)
+	return nil
 }
 
 func ReplaceBadword(sentence *string) {
