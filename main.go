@@ -108,6 +108,7 @@ func (apicfg *apiconfig) createUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiconfig) CreateChirps(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
 	chirp := Chirp{}
 	err := ValidateChirp(w, r, &chirp)
 	if err != nil {
@@ -134,8 +135,6 @@ func ValidateChirp(w http.ResponseWriter, r *http.Request, chirp *Chirp) error {
 
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(chirp)
-
-	defer r.Body.Close()
 
 	if err != nil {
 		RespondWithErr(w, http.StatusBadRequest, "Something went wrong")
@@ -208,6 +207,7 @@ func (cfg *apiconfig) ResetRequests(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	cfg.FileServerHits.Swap(0)
 	err := cfg.DB.DeleteAllUser(r.Context())
+	err = cfg.DB.DeleteAllChirps(r.Context())
 	if err != nil {
 		RespondWithJson(w, http.StatusInternalServerError, "unable to delete all users")
 		return
