@@ -35,3 +35,12 @@ func (q *Queries) CreateChirp(ctx context.Context, arg CreateChirpParams) (Chirp
 	)
 	return i, err
 }
+
+const deleteAllChirps = `-- name: DeleteAllChirps :exec
+TRUNCATE TABLE chirp
+`
+
+func (q *Queries) DeleteAllChirps(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAllChirps)
+	return err
+}
