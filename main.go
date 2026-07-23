@@ -74,9 +74,56 @@ func main() {
 	mux.HandleFunc("GET /admin/metrics", apiCfg.countRequests)
 	mux.HandleFunc("POST /admin/reset", apiCfg.ResetRequests)
 	mux.HandleFunc("POST /api/chirps", apiCfg.CreateChirps)
+	mux.HandleFunc("GET /api/chirps", apiCfg.GetChirps)
+	mux.HandleFunc("GET /api/chirps/{ChirpID}", apiCfg.GetOneChirp)
 
 	println("Server Listening on port 8080")
 	log.Fatal(server.ListenAndServe())
+}
+
+func (apicfg *apiconfig) GetOneChirp(w http.ResponseWriter, r *http.Request) {
+	chirpID, err := uuid.Parse(r.PathValue("ChirpID"))
+
+	if err != nil {
+		RespondWithErr(w, http.StatusBadRequest, "Invalid chirp ID")
+		return
+	}
+
+	chirp, err := apicfg.DB.GetOneChirp(r.Context(), chirpID)
+
+	if err == sql.ErrNoRows {
+		RespondWithErr(w, http.StatusNotFound, "Chirp Not Found")
+		return
+	}
+	if err != nil {
+		RespondWithErr(w, http.StatusInternalServerError, "Unable to access chirp")
+		return
+	}
+
+	RespondWithJson(w, http.StatusOK, Chirp{Id: chirp.ID, Created_at: chirp.CreatedAt, Updated_at: chirp.UpdatedAt, User_id: chirp.Userid, Body: chirp.Body})
+}
+
+func (apicfg *apiconfig) GetChirps(w http.ResponseWriter, r *http.Request) {
+	chirps, err := apicfg.DB.GetAllChirps(r.Context())
+
+	if err != nil {
+		RespondWithErr(w, http.StatusInternalServerError, "Unable to access chirps from DataBase")
+		return
+	}
+
+	c := []Chirp{}
+
+	for _, chirp := range chirps {
+		c = append(c, Chirp{
+			Id:         chirp.ID,
+			Created_at: chirp.CreatedAt,
+			Updated_at: chirp.UpdatedAt,
+			Body:       chirp.Body,
+			User_id:    chirp.Userid,
+		})
+	}
+
+	RespondWithJson(w, http.StatusOK, c)
 }
 
 func (apicfg *apiconfig) createUsers(w http.ResponseWriter, r *http.Request) {
