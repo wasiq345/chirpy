@@ -6,3 +6,9 @@ RETURNING *;
 
 -- name: DeleteAllChirps :exec
 TRUNCATE TABLE chirp;
+
+-- name: GetAllChirps :many
+SELECT * FROM chirp ORDER BY created_at;
+
+-- name: GetOneChirp :one
+SELECT * FROM chirp WHERE chirp.id = $1;
